@@ -18,9 +18,24 @@ try
          retainedFileCountLimit: 31, // Keep 31 days
          outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] {Message:lj}{NewLine}{Exception}")
          .ReadFrom.Configuration(ctx.Configuration));
+
+    //region Cores
+    builder.Services.AddCors(options =>
+            options.AddPolicy("Default", policy =>
+            {
+                policy.WithOrigins("http://localhost:4200")
+                        //builder.Configuration.GetSection("coresAllowedLinks").Value.Split(","))
+                        .AllowAnyHeader()
+                        .AllowAnyMethod()
+                        .AllowCredentials();
+                //.SetPreflightMaxAge(TimeSpan.FromSeconds(86400));
+            }));
     // Add services to the container.
-    builder.Services.AddSingleton<FortyGuardService>();
+    // builder.Services.AddScoped<IFortyGuardService,FortyGuardService>();
+    builder.Services.AddHttpClient<IFortyGuardService, FortyGuardService>();
+    builder.Services.AddHttpClient<GeminiService>();
     builder.Services.AddControllers();
+
     // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
     builder.Services.AddEndpointsApiExplorer();
     builder.Services.AddSwaggerGen();
