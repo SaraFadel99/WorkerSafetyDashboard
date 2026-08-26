@@ -16,7 +16,7 @@
         private const double UsMinLon = -125.0, UsMaxLon = -66.9;
 
         public static SafetyRequestValidationResult Validate(
-            double lat, double lon, DateTime date, int granularityMeters)
+            double lat, double lon, DateTime date, int granularityMeters=100)
         {
             if (lat < UsMinLat || lat > UsMaxLat || lon < UsMinLon || lon > UsMaxLon)
                 return Invalid("Coordinates must be within the continental United States.");

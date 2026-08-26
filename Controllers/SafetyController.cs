@@ -1,7 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using WorkerSafetyDashboard.Models;
 using WorkerSafetyDashboard.Services;
-using WorkerSafetyDashboard.MockData;
 
 namespace WorkerSafetyDashboard.Controllers
 {
@@ -9,10 +8,17 @@ namespace WorkerSafetyDashboard.Controllers
     [Route("api/[controller]")]
     public class SafetyController : ControllerBase
     {
+        private readonly IFortyGuardService _fortyGuardService;
+        private readonly IOpenMeteoService _openMeteoService;
         private readonly GeminiService _geminiService;
 
-        public SafetyController(GeminiService geminiService)
+        public SafetyController(
+            IFortyGuardService fortyGuardService,
+            IOpenMeteoService openMeteoService,
+            GeminiService geminiService)
         {
+            _fortyGuardService = fortyGuardService;
+            _openMeteoService = openMeteoService;
             _geminiService = geminiService;
         }
 
@@ -27,37 +33,71 @@ namespace WorkerSafetyDashboard.Controllers
             if (!validation.IsValid)
                 return BadRequest(new { error = validation.ErrorMessage });
 
-            // TODO: TEMPORARY - swap for live GetLiveEnvParams(lat, lon, date) once Day-of-live-wiring lands
-            var fixture = GetMockFixtureNearest(lat, lon);
-
-            double heatIndexF = CToF(fixture.HeatIndexC);
-            double wetBulbF = CToF(fixture.WetBulbC);
-            var badge = HeatSafetyClassifier.ClassifyByHeatIndex(heatIndexF);
-
-            var geminiResult = await _geminiService.GetSafetySuggestionAsync(
-                heatIndexF, wetBulbF, fixture.HumidityPercent,
-                fixture.Aqi, fixture.SolarIrradianceWm2, badge);
-
-            return Ok(new SafetyCardResponse
+            try
             {
-                Latitude = lat,
-                Longitude = lon,
-                Timestamp = date.ToString("o"),
-                HeatIndexF = Math.Round(heatIndexF, 1),
-                WetBulbF = Math.Round(wetBulbF, 1),
-                HumidityPercent = fixture.HumidityPercent,
-                Aqi = fixture.Aqi,
-                SolarIrradianceGhi = fixture.SolarIrradianceWm2,
-                Badge = badge.ToString(),
-                Suggestion = geminiResult.Suggestion,
-                KeyConcern = geminiResult.KeyConcern
-            });
-        }
+                var dateTimeFilter = new DateTimeFilter
+                {
+                    StartDate = date.ToString("yyyy-MM-dd"),
+                    StartTime = date.ToString("HH:mm"),
+                    FilterType = 1 // single-hour filtered — required for env_params, per locked architecture
+                };
 
-        // Temporary: just returns a mock fixture regardless of exact coords, so any click works during FE dev.
-        private static EnvParamsMockFixture GetMockFixtureNearest(double lat, double lon)
-        {
-            return EnvParamsMockData.Fixtures[0]; // swap logic later; fine for wiring FE now
+                // Day A: live temp -> env_params
+                var temperatureC = await _openMeteoService.GetTemperatureAsync(lat, lon, dateTimeFilter);
+
+                var envRequest = new EnvParamsRequest
+                {
+                    Latitude = lat,
+                    Longitude = lon,
+                    Temperature = temperatureC,
+                    DateTime = dateTimeFilter
+                };
+
+                var envResult = await _fortyGuardService.GetEnvironmentalParametersAsync(envRequest);
+
+                var location = envResult.Locations.FirstOrDefault();
+                if (location is null)
+                    throw new InvalidOperationException("env_params returned no locations");
+
+                double? heatIndexC = location.Parameters.HeatIndexCelsius.FirstOrDefault();
+                double? wetBulbC = location.Parameters.WetBulbTemperatureCelsius.FirstOrDefault();
+                double? humidityPercent = location.Parameters.RelativeHumidityPercent.FirstOrDefault();
+                double? aqiRaw = location.Parameters.AirQualityIdx.FirstOrDefault();
+                double solarGhi = location.SolarIrradiance?.ClearSky.Ghi ?? 0;
+
+                if (heatIndexC is null || wetBulbC is null || humidityPercent is null)
+                    throw new InvalidOperationException("env_params returned null for a required field");
+
+                double heatIndexF = CToF(heatIndexC.Value);
+                double wetBulbF = CToF(wetBulbC.Value);
+                int aqi = (int)Math.Round(aqiRaw ?? 0);
+
+                // Day B: badge -> Gemini
+                var badge = HeatSafetyClassifier.ClassifyByHeatIndex(heatIndexF);
+
+                var geminiResult = await _geminiService.GetSafetySuggestionAsync(
+                    heatIndexF, wetBulbF, humidityPercent.Value, aqi, solarGhi, badge);
+
+                return Ok(new SafetyCardResponse
+                {
+                    Latitude = lat,
+                    Longitude = lon,
+                    Timestamp = date.ToString("o"),
+                    HeatIndexF = Math.Round(heatIndexF, 1),
+                    WetBulbF = Math.Round(wetBulbF, 1),
+                    HumidityPercent = humidityPercent.Value,
+                    Aqi = aqi,
+                    SolarIrradianceGhi = solarGhi,
+                    Badge = badge.ToString(),
+                    Suggestion = geminiResult.Suggestion,
+                    KeyConcern = geminiResult.KeyConcern
+                });
+            }
+            catch (Exception ex)
+            {
+                // TODO: swap for real logging (ILogger) before submission
+                return StatusCode(StatusCodes.Status500InternalServerError, new { error = ex.Message });
+            }
         }
 
         private static double CToF(double celsius) => (celsius * 9.0 / 5.0) + 32;

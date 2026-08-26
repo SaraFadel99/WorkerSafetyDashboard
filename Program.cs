@@ -34,6 +34,7 @@ try
     // builder.Services.AddScoped<IFortyGuardService,FortyGuardService>();
     builder.Services.AddHttpClient<IFortyGuardService, FortyGuardService>();
     builder.Services.AddHttpClient<GeminiService>();
+    builder.Services.AddHttpClient<IOpenMeteoService, OpenMeteoService>();
     builder.Services.AddControllers();
 
     // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle

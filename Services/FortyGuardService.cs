@@ -155,7 +155,7 @@ namespace WorkerSafetyDashboard.Services
     private async Task<T> WaitForAsync<T>(
         string activityId,
         double pollIntervalSeconds = 3.0,
-        double timeoutSeconds = 600.0)
+        double timeoutSeconds = 60.0/*sec not sure abu it revisit docs */)
     {
         var deadline = DateTime.UtcNow.AddSeconds(timeoutSeconds);
 
