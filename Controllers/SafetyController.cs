@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 using WorkerSafetyDashboard.Models;
 using WorkerSafetyDashboard.Services;
 
@@ -11,15 +12,17 @@ namespace WorkerSafetyDashboard.Controllers
         private readonly IFortyGuardService _fortyGuardService;
         private readonly IOpenMeteoService _openMeteoService;
         private readonly GeminiService _geminiService;
+        private readonly ILogger<SafetyController> _logger;
+        public SafetyController(IFortyGuardService fortyGuardService,
+                                IOpenMeteoService openMeteoService,
+                                GeminiService geminiService,
+                                ILogger<SafetyController> logger)
 
-        public SafetyController(
-            IFortyGuardService fortyGuardService,
-            IOpenMeteoService openMeteoService,
-            GeminiService geminiService)
         {
             _fortyGuardService = fortyGuardService;
             _openMeteoService = openMeteoService;
             _geminiService = geminiService;
+            _logger = logger;
         }
 
         [HttpGet]
@@ -40,9 +43,10 @@ namespace WorkerSafetyDashboard.Controllers
                     StartDate = date.ToString("yyyy-MM-dd"),
                     StartTime = date.ToString("HH:mm"),
                     FilterType = 1 // single-hour filtered — required for env_params, per locked architecture
+                                       //ToDocould change this
                 };
 
-                // Day A: live temp -> env_params
+             
                 var temperatureC = await _openMeteoService.GetTemperatureAsync(lat, lon, dateTimeFilter);
 
                 var envRequest = new EnvParamsRequest
@@ -72,7 +76,6 @@ namespace WorkerSafetyDashboard.Controllers
                 double wetBulbF = CToF(wetBulbC.Value);
                 int aqi = (int)Math.Round(aqiRaw ?? 0);
 
-                // Day B: badge -> Gemini
                 var badge = HeatSafetyClassifier.ClassifyByHeatIndex(heatIndexF);
 
                 var geminiResult = await _geminiService.GetSafetySuggestionAsync(
@@ -95,7 +98,7 @@ namespace WorkerSafetyDashboard.Controllers
             }
             catch (Exception ex)
             {
-                // TODO: swap for real logging (ILogger) before submission
+                _logger.LogError(ex, "");
                 return StatusCode(StatusCodes.Status500InternalServerError, new { error = ex.Message });
             }
         }
