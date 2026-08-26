@@ -51,6 +51,7 @@ try
     }
 
     app.UseHttpsRedirection();
+    app.UseCors("Default");
 
     app.UseAuthorization();
 

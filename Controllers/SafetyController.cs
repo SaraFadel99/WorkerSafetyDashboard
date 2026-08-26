@@ -25,14 +25,12 @@ namespace WorkerSafetyDashboard.Controllers
             _logger = logger;
         }
 
-        [HttpGet]
-        public async Task<ActionResult<SafetyCardResponse>> GetSafetyCard(
-            [FromQuery] double lat,
-            [FromQuery] double lon,
-            [FromQuery] DateTime date,
-            [FromQuery] int granularity = 100)
+        [HttpPost("locationSafety")]
+        public async Task<ActionResult<SafetyCardResponse>> GetSafetyCard( SafetyCardRequest requestData)
         {
-            var validation = SafetyRequestValidator.Validate(lat, lon, date, granularity);
+            if (requestData is null)
+                return BadRequest(new { error = "Request body is required." });
+            var validation = SafetyRequestValidator.Validate(requestData.Lat, requestData.Lon, requestData.NeededDate, requestData.Granularity);
             if (!validation.IsValid)
                 return BadRequest(new { error = validation.ErrorMessage });
 
@@ -40,19 +38,19 @@ namespace WorkerSafetyDashboard.Controllers
             {
                 var dateTimeFilter = new DateTimeFilter
                 {
-                    StartDate = date.ToString("yyyy-MM-dd"),
-                    StartTime = date.ToString("HH:mm"),
+                    StartDate = requestData.NeededDate.ToString("yyyy-MM-dd"),
+                    StartTime = requestData.NeededDate.ToString("HH:mm"),
                     FilterType = 1 // single-hour filtered — required for env_params, per locked architecture
                                        //ToDocould change this
                 };
 
              
-                var temperatureC = await _openMeteoService.GetTemperatureAsync(lat, lon, dateTimeFilter);
+                var temperatureC = await _openMeteoService.GetTemperatureAsync(requestData.Lat, requestData.Lon, dateTimeFilter);
 
                 var envRequest = new EnvParamsRequest
                 {
-                    Latitude = lat,
-                    Longitude = lon,
+                    Latitude = requestData.Lat,
+                    Longitude = requestData.Lon,
                     Temperature = temperatureC,
                     DateTime = dateTimeFilter
                 };
@@ -83,9 +81,9 @@ namespace WorkerSafetyDashboard.Controllers
 
                 return Ok(new SafetyCardResponse
                 {
-                    Latitude = lat,
-                    Longitude = lon,
-                    Timestamp = date.ToString("o"),
+                    Latitude = requestData.Lat,
+                    Longitude = requestData.Lon,
+                    Timestamp = requestData.NeededDate.ToString("o"),
                     HeatIndexF = Math.Round(heatIndexF, 1),
                     WetBulbF = Math.Round(wetBulbF, 1),
                     HumidityPercent = humidityPercent.Value,
