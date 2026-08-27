@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using WorkerSafetyDashboard.Models;
 using WorkerSafetyDashboard.Services;
@@ -28,24 +29,28 @@ namespace WorkerSafetyDashboard.Controllers
         [HttpPost("locationSafety")]
         public async Task<ActionResult<SafetyCardResponse>> GetSafetyCard( SafetyCardRequest requestData)
         {
+            DateTime getDate = DateTime.Parse(requestData.NeededDate);
+
             if (requestData is null)
                 return BadRequest(new { error = "Request body is required." });
-            var validation = SafetyRequestValidator.Validate(requestData.Lat, requestData.Lon, requestData.NeededDate, requestData.Granularity);
+            var validation = SafetyRequestValidator.Validate(requestData.Lat, requestData.Lon, getDate, requestData.Granularity);
             if (!validation.IsValid)
                 return BadRequest(new { error = validation.ErrorMessage });
+            if (!DateTime.TryParse(requestData.NeededDate, out var neededDate))
+                return BadRequest(new { error = "NeededDate is not a valid date/time string." });
 
             try
             {
                 var dateTimeFilter = new DateTimeFilter
                 {
-                    StartDate = requestData.NeededDate.ToString("yyyy-MM-dd"),
-                    StartTime = requestData.NeededDate.ToString("HH:mm"),
+                    StartDate = getDate.ToString("yyyy-MM-dd"),
+                    StartTime = getDate.ToString("HH:00"),
                     FilterType = 1 // single-hour filtered — required for env_params, per locked architecture
                                        //ToDocould change this
                 };
 
              
-                var temperatureC = await _openMeteoService.GetTemperatureAsync(requestData.Lat, requestData.Lon, dateTimeFilter);
+                var temperatureC = await _openMeteoService.GetTemperatureAsync(requestData.Lat, requestData.Lon, dateTimeFilter, requestData.TimeZone);
 
                 var envRequest = new EnvParamsRequest
                 {
@@ -83,7 +88,7 @@ namespace WorkerSafetyDashboard.Controllers
                 {
                     Latitude = requestData.Lat,
                     Longitude = requestData.Lon,
-                    Timestamp = requestData.NeededDate.ToString("o"),
+                    Timestamp = requestData.NeededDate,//.ToString("o"),
                     HeatIndexF = Math.Round(heatIndexF, 1),
                     WetBulbF = Math.Round(wetBulbF, 1),
                     HumidityPercent = humidityPercent.Value,

@@ -12,12 +12,12 @@ namespace WorkerSafetyDashboard.Services
             _httpClient.BaseAddress = new Uri("https://api.open-meteo.com/");
         }
 
-        public async Task<double> GetTemperatureAsync(double latitude, double longitude, DateTimeFilter dateTime)
+        public async Task<double> GetTemperatureAsync(double latitude, double longitude, DateTimeFilter dateTime, string timeZone)
         {
             var date = dateTime.StartDate; // "2024-07-15"
             var url = $"v1/forecast?latitude={latitude}&longitude={longitude}" +
                       $"&hourly=temperature_2m&start_date={date}&end_date={date}" +
-                      $"&temperature_unit=celsius&timezone=UTC";
+                      $"&temperature_unit=celsius&timezone={timeZone}";
 
             var response = await _httpClient.GetAsync(url);
             response.EnsureSuccessStatusCode();
