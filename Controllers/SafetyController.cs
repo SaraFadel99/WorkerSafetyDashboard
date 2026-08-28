@@ -86,6 +86,7 @@ namespace WorkerSafetyDashboard.Controllers
 
                 return Ok(new SafetyCardResponse
                 {
+                    SiteName=requestData.SiteName,
                     Latitude = requestData.Lat,
                     Longitude = requestData.Lon,
                     Timestamp = requestData.NeededDate,//.ToString("o"),
