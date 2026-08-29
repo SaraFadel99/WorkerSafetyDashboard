@@ -27,8 +27,8 @@ jobs:
       - name: Publish
         run: |
           dotnet publish WorkerSafetyDashboard.csproj 
-            --configuration Release \
-            --output ./publish \
+            --configuration Release 
+            --output ./publish 
             --no-build
 
       - name: Upload artifact for deployment job
