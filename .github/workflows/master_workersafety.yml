@@ -22,7 +22,7 @@ jobs:
 
       # Build only the web project (avoids the missing test project)
       - name: Build with dotnet
-        run: dotnet build ./WorkerSafetyDashboard/WorkerSafetyDashboard.csproj --configuration Release
+        run: dotnet build ./WorkerSafetyDashboard.csproj --configuration Release
 
       - name: Publish
         run: |
