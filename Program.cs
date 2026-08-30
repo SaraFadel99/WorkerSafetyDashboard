@@ -30,6 +30,7 @@ try
                     "LogFiles", "Serilog", "logError.txt");
             }
         }
+        Console.WriteLine($"=== Serilog path: {logPath} ===");  
         lc.WriteTo.File(logPath,
         rollingInterval: RollingInterval.Day,
         rollOnFileSizeLimit: true,
