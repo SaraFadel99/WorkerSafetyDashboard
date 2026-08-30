@@ -47,12 +47,12 @@ try
     builder.Services.AddCors(options =>
             options.AddPolicy("Default", policy =>
             {
-                policy.WithOrigins("http://localhost:4200")
-                        //builder.Configuration.GetSection("coresAllowedLinks").Value.Split(","))
+                string allowedFE  = builder.Configuration.GetValue<string>("allowedFE");
+                policy.WithOrigins(allowedFE)
                         .AllowAnyHeader()
                         .AllowAnyMethod()
-                        .AllowCredentials();
-                //.SetPreflightMaxAge(TimeSpan.FromSeconds(86400));
+                        .AllowCredentials()
+                        .SetPreflightMaxAge(TimeSpan.FromSeconds(86400));
             }));
     // Add services to the container.
     // builder.Services.AddScoped<IFortyGuardService,FortyGuardService>();
