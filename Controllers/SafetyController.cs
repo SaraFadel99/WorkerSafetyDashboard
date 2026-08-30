@@ -1,6 +1,8 @@
 ﻿using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
+using System.Reflection.Metadata.Ecma335;
+using WorkerSafetyDashboard.ExceptionHandling;
 using WorkerSafetyDashboard.Models;
 using WorkerSafetyDashboard.Services;
 
@@ -38,7 +40,7 @@ namespace WorkerSafetyDashboard.Controllers
                 return BadRequest(new { error = validation.ErrorMessage });
             if (!DateTime.TryParse(requestData.NeededDate, out var neededDate))
                 return BadRequest(new { error = "NeededDate is not a valid date/time string." });
-
+            double temperatureC=0;
             try
             {
                 var dateTimeFilter = new DateTimeFilter
@@ -49,8 +51,8 @@ namespace WorkerSafetyDashboard.Controllers
                                    //ToDocould change this
                 };
 
-             
-                var temperatureC = await _openMeteoService.GetTemperatureAsync(requestData.Lat, requestData.Lon, dateTimeFilter, requestData.TimeZone);
+
+                temperatureC = await _openMeteoService.GetTemperatureAsync(requestData.Lat, requestData.Lon, dateTimeFilter, requestData.TimeZone);
 
                 var envRequest = new EnvParamsRequest
                 {
@@ -86,10 +88,10 @@ namespace WorkerSafetyDashboard.Controllers
 
                 return Ok(new SafetyCardResponse
                 {
-                    SiteName=requestData.SiteName,
+                    SiteName = requestData.SiteName,
                     Latitude = requestData.Lat,
                     Longitude = requestData.Lon,
-                    Timestamp = requestData.NeededDate,//.ToString("o"),
+                    Timestamp = requestData.NeededDate,
                     HeatIndexF = Math.Round(heatIndexF, 1),
                     WetBulbF = Math.Round(wetBulbF, 1),
                     HumidityPercent = humidityPercent.Value,
@@ -98,6 +100,42 @@ namespace WorkerSafetyDashboard.Controllers
                     Badge = badge.ToString(),
                     Suggestion = geminiResult.Suggestion,
                     KeyConcern = geminiResult.KeyConcern
+                });
+            }
+            catch (TaskTimeoutException)
+            {
+                double  humidityPercent = 0;
+                int aqi = 0;
+                double solarGhi = 0;
+            
+                // FortyGuard didn't finish in time — degrade gracefully using OpenMeteo temp alone.
+                _logger.LogWarning( "env_params timed out, falling back to temperature-only response");
+
+               var isDegraded = true;
+                var heatIndexF1 = CToF(temperatureC); // best available proxy — not a real heat index
+                double wetBulbF1 = 0;
+
+                var badge1 = HeatSafetyClassifier.ClassifyByHeatIndex(heatIndexF1); // conservative approximation
+
+
+                var approximatGeminiResult = await _geminiService.GetSafetySuggestionAsync(
+                    heatIndexF1, wetBulbF1, humidityPercent, aqi, solarGhi, badge1);
+
+                return Ok(new SafetyCardResponse
+                {
+                    SiteName = requestData.SiteName,
+                    Latitude = requestData.Lat,
+                    Longitude = requestData.Lon,
+                    Timestamp = requestData.NeededDate,
+                    HeatIndexF = Math.Round(heatIndexF1, 1),
+                    WetBulbF = Math.Round(wetBulbF1, 1),
+                    HumidityPercent = humidityPercent,
+                    Aqi = aqi,
+                    SolarIrradianceGhi = solarGhi,
+                    Badge = badge1.ToString(),
+                    Suggestion = approximatGeminiResult.Suggestion,
+                    KeyConcern = approximatGeminiResult.KeyConcern,
+                    IsDegraded = isDegraded
                 });
             }
             catch (Exception ex)
