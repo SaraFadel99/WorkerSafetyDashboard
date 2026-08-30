@@ -11,7 +11,7 @@ try
 
     builder.Host.UseSerilog((ctx, lc) =>
 
-         lc.WriteTo.File(ctx.HostingEnvironment.ContentRootPath + ctx.Configuration.GetValue<string>("logFilePath"),
+    lc.WriteTo.File(Path.Combine(ctx.HostingEnvironment.ContentRootPath, ctx.Configuration.GetValue<string>("logFilePath") ?? "logs\\logError.txt"),
          rollingInterval: RollingInterval.Day,
          rollOnFileSizeLimit: true,
          fileSizeLimitBytes: 10 * 1024 * 1024, // 10MB
