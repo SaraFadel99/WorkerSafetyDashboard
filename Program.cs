@@ -10,14 +10,37 @@ try
     var builder = WebApplication.CreateBuilder(args);
 
     builder.Host.UseSerilog((ctx, lc) =>
+    {
+            string logPath;
+        if (builder.Environment.IsDevelopment())
+        {
+            var relativePath = ctx.Configuration.GetValue<string>("logFilePath") ?? "logs\\logError.txt";
+            logPath = Path.Combine(ctx.HostingEnvironment.ContentRootPath, relativePath);
 
-    lc.WriteTo.File(Path.Combine(ctx.HostingEnvironment.ContentRootPath, ctx.Configuration.GetValue<string>("logFilePath") ?? "logs\\logError.txt"),
-         rollingInterval: RollingInterval.Day,
-         rollOnFileSizeLimit: true,
-         fileSizeLimitBytes: 10 * 1024 * 1024, // 10MB
-         retainedFileCountLimit: 31, // Keep 31 days
-         outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] {Message:lj}{NewLine}{Exception}")
-         .ReadFrom.Configuration(ctx.Configuration));
+        }
+        else 
+        {
+             logPath = ctx.Configuration.GetValue<string>("logFilePath");
+
+            // Fallback if the setting is missing
+            if (string.IsNullOrWhiteSpace(logPath))
+            {
+                logPath = Path.Combine(
+                    Environment.GetEnvironmentVariable("HOME") ?? @"C:\home",
+                    "LogFiles", "Serilog", "logError.txt");
+            }
+        }
+        lc.WriteTo.File(logPath,
+        rollingInterval: RollingInterval.Day,
+        rollOnFileSizeLimit: true,
+        fileSizeLimitBytes: 10 * 1024 * 1024, // 10MB
+        retainedFileCountLimit: 31, // Keep 31 days
+        outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] {Message:lj}{NewLine}{Exception}")
+        .ReadFrom.Configuration(ctx.Configuration);
+      });
+
+    
+  
 
     //region Cores
     builder.Services.AddCors(options =>
