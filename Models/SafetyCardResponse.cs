@@ -12,6 +12,7 @@
         public double HumidityPercent { get; set; }
         public int Aqi { get; set; }
         public double SolarIrradianceGhi { get; set; }
+        public bool IsDegraded { get; set; } = false;
 
         public string Badge { get; set; } = string.Empty;      // e.g. "Danger"
         public string Suggestion { get; set; } = string.Empty; // from Gemini
