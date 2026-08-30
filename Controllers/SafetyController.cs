@@ -45,8 +45,8 @@ namespace WorkerSafetyDashboard.Controllers
                 {
                     StartDate = getDate.ToString("yyyy-MM-dd"),
                     StartTime = getDate.ToString("HH:00"),
-                    FilterType = 1 // single-hour filtered — required for env_params, per locked architecture
-                                       //ToDocould change this
+                    FilterType = 3 // 3 (Single Day) - requires only start_date//1 for single-hour filtered — required for env_params, per locked architecture
+                                   //ToDocould change this
                 };
 
              
@@ -60,7 +60,7 @@ namespace WorkerSafetyDashboard.Controllers
                     DateTime = dateTimeFilter
                 };
 
-                var envResult = await _fortyGuardService.GetEnvironmentalParametersAsync(envRequest);
+                EnvParamsResult envResult = await _fortyGuardService.GetEnvironmentalParametersAsync(envRequest);
 
                 var location = envResult.Locations.FirstOrDefault();
                 if (location is null)
